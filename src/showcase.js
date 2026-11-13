@@ -1,0 +1,7 @@
+import {Button,Badge,Field,Dialog,Toast,Banner} from './design-system/components.js';
+const host=document.querySelector('#showcase');
+function section(title){const root=document.createElement('section');root.className='showcase-section';const h=document.createElement('h2');h.textContent=title;root.append(h);host.append(root);return root;}
+const buttons=section('01 / Buttons');buttons.append(Button({label:'Primary action'}),Button({label:'Secondary',variant:'secondary'}),Button({label:'Disabled',disabled:true}));
+const fields=section('02 / Form fields');const title=Field({id:'sample-title',label:'Task title',required:true,hint:'Up to 80 characters.'});const invalid=Field({id:'sample-error',label:'Error example'});invalid.setError('Enter a task title.');fields.append(title.root,invalid.root,Field({id:'sample-owner',label:'Owner',kind:'select',options:[{label:'Choose an owner',value:''},{label:'Alex Chen',value:'Alex Chen'}]}).root);
+const feedback=section('03 / Feedback');feedback.append(Badge({label:'High',tone:'warning'}),Badge({label:'Done',tone:'success'}),Banner('An example error message.'),Button({label:'Preview toast',variant:'secondary',onClick:()=>Toast('Task created.')}));
+const modals=section('04 / Dialog');const dialog=Dialog({title:'Example dialog'});dialog.body.textContent='Tab stays inside this native modal. Escape closes it; focus returns to the trigger.';dialog.footer.append(Button({label:'Close',variant:'secondary',onClick:()=>dialog.close()}));modals.append(Button({label:'Open dialog',onClick:()=>dialog.open()}));

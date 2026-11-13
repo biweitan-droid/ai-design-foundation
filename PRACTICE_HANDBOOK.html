@@ -1,0 +1,957 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI-native 设计实操手册</title><style>
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f5f6fa;color:#202938;font:15px/1.85 system-ui,-apple-system,"PingFang SC",sans-serif}header{padding:54px max(28px,calc((100vw - 1000px)/2));background:#182b43;color:#fff}header small{color:#b2c9ef;letter-spacing:2px}header h1{font-size:36px;line-height:1.4;margin:12px 0}header p{color:#d1d9e4;max-width:760px}main{max-width:1120px;margin:30px auto;padding:0 24px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px}nav{position:sticky;top:24px;align-self:start;display:grid;gap:8px;font-size:12px}nav a{padding:8px 12px;background:#fff;border:1px solid #e0e4eb;border-radius:8px;text-decoration:none;color:#35455b}article{background:#fff;padding:32px;border:1px solid #e0e4eb;border-radius:12px;margin:0 0 28px;scroll-margin-top:24px}.file{font-size:11px;font-family:monospace;color:#637185}h1{font-size:26px;line-height:1.5}h2{font-size:21px;margin-top:36px;padding-top:20px;border-top:1px solid #e0e4eb}h3{font-size:17px}a{color:#3559ce}p{overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;font-size:12px;display:block;overflow:auto}th,td{border:1px solid #e0e4eb;padding:10px 12px;text-align:left;min-width:90px}th{background:#f2f4f8}pre{position:relative;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;background:#eef2f8;border:1px solid #dce4ef;border-radius:8px;padding:46px 18px 18px;font-size:13px;line-height:1.8}pre code{background:none;padding:0}code{background:#eef2f8;padding:2px 5px;border-radius:4px;font:13px/1.7 ui-monospace,monospace}.copy{position:absolute;top:8px;right:8px;background:#fff;border:1px solid #cad3e1;border-radius:5px;padding:4px 10px;cursor:pointer;color:#3559ce}li{margin-bottom:6px}.note{background:#e8effa;padding:14px 18px;border-radius:8px}strong{font-weight:700}@media(max-width:850px){main{display:block;padding:0 14px}nav{position:static;margin-bottom:24px;grid-template-columns:1fr 1fr}article{padding:22px 18px}header{padding:32px 24px}header h1{font-size:28px}}@media print{nav,.copy{display:none}main{display:block;max-width:none}header{background:#fff;color:#202938;padding:10px}header p,header small{color:#35455b}article{border:0;break-before:page}pre{break-inside:avoid}}
+</style></head><body><header><small>TASKROOM / DESIGN DELIVERY LAB</small><h1>从现有组件，到上线一个新功能。</h1><p>基础项目 + 操作顺序 + 每一步的 Claude prompt。先从第 0 步开始，一次发送一个阶段。</p><p class="note" style="color:#182b43">本文件可离线阅读。运行项目需要在 VS Code 中打开同一文件夹，并在终端执行 npm run dev；不要直接双击 index.html。</p></header><main><nav><a href="#chapter-0">从 Design System 到 Release：实操主指南</a><a href="#chapter-1">基础包验证记录</a><a href="#chapter-2">01 · Feature brief: Create task</a><a href="#chapter-3">02 · Design System 使用说明</a><a href="#chapter-4">03 · 技术地图与数据契约</a><a href="#chapter-5">04 · QA checklist</a><a href="#chapter-6">05 · GitHub / CI / Release runbook</a><a href="#chapter-7">06 · 必要术语与官方资源</a><a href="#chapter-8">07 · 如何迁移到公司的真实工作</a></nav><div><article id="chapter-0"><div class="file">START_HERE.md</div><h1>从 Design System 到 Release：实操主指南</h1>
+<p><strong>目标：在已有 Taskroom 产品里，亲手完成 Create task 并发布。</strong></p>
+<p>你不用先学完编程。每一步先看材料，再给 Claude 对应 prompt，然后亲自验收。一次只发送一个阶段的 prompt。</p>
+<p>基础包已提供：运行中的产品、代码版 Design System、组件展示、数据服务、数据测试、CI、手动发布 workflow、需求与 QA 文件。<strong>尚未提供：Create task 的表单与提交交互——这正是你的练习。</strong></p>
+<p>预计分 4 次练习，每次 60–90 分钟；环境或账号问题可能需要额外时间。</p>
+<h2>操作总览</h2>
+<table>
+<thead>
+<tr>
+<th>顺序</th>
+<th>阶段</th>
+<th>材料</th>
+<th>你的产出</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0</td>
+<td>准备工具并启动</td>
+<td>README.md、package.json</td>
+<td>本地页面可打开</td>
+</tr>
+<tr>
+<td>1</td>
+<td>理解已有项目</td>
+<td>CLAUDE.md、docs/03、src/</td>
+<td>outputs/01-repo-map.md</td>
+</tr>
+<tr>
+<td>2</td>
+<td>建 GitHub 基线</td>
+<td>docs/05、.github/</td>
+<td>main 已上传、CI 通过</td>
+</tr>
+<tr>
+<td>3</td>
+<td>识别和调用 DS</td>
+<td>components.html、docs/02</td>
+<td>组件与 API 映射</td>
+</tr>
+<tr>
+<td>4</td>
+<td>定义 feature</td>
+<td>docs/01</td>
+<td>outputs/02-feature-plan.md</td>
+</tr>
+<tr>
+<td>5</td>
+<td>新建分支并实施</td>
+<td>plan、src/、CLAUDE.md</td>
+<td>可运行的新功能</td>
+</tr>
+<tr>
+<td>6</td>
+<td>浏览器设计迭代</td>
+<td>docs/04、真实页面</td>
+<td>完整状态、视觉和键盘体验</td>
+</tr>
+<tr>
+<td>7</td>
+<td>检查与修复</td>
+<td>tests/、docs/04</td>
+<td>outputs/03-qa-report.md</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Commit + PR</td>
+<td>.github/pull_request_template.md</td>
+<td>可 Review 的 PR</td>
+</tr>
+<tr>
+<td>9</td>
+<td>合并并发布</td>
+<td>docs/05、pages.yml</td>
+<td>正式 URL</td>
+</tr>
+<tr>
+<td>10</td>
+<td>验证与回退演练</td>
+<td>QA、release log</td>
+<td>outputs/04-release-log.md</td>
+</tr>
+</tbody></table>
+<p>第一次练 0–3；第二次练 4–5；第三次练 6–8；第四次练 9–10。</p>
+<h2>0 · 准备工具，启动基线</h2>
+<p><strong>材料：</strong> README.md、package.json、docs/06-glossary-and-resources.md。</p>
+<p><strong>你操作：</strong></p>
+<ol>
+<li>下载并解压整个 ZIP。移动到方便的位置，例如 Documents；文件夹保留为 <code>ai-design-foundation</code>。</li>
+<li>安装 VS Code、Git、Node.js 22+、Claude Code。账号需能使用 Claude Code；ChatGPT 订阅不等于 Claude 使用权限。</li>
+<li>VS Code → File → Open Folder → 选该文件夹。Terminal → New Terminal。</li>
+<li>在 VS Code 终端逐条运行：</li>
+</ol>
+<pre><code class="language-bash">node --version
+git --version
+npm run dev
+</code></pre>
+<ol start="5">
+<li>打开 <a href="http://localhost:5173">http://localhost:5173</a> 。应看到 3 条任务，没有 Create task 按钮；组件库链接可打开。</li>
+<li>保留这个终端作为开发服务器。另开第二个终端，输入 <code>claude</code>，按官方登录流程进入。Claude 需在本项目文件夹内启动。</li>
+</ol>
+<p>Mac 如果 <code>git</code> 提示安装命令行工具，按系统提示完成。若 5173 被占用，停止占用服务或在 Mac 用 <code>PORT=5174 npm run dev</code>，再打开对应端口；切换端口会对应不同本地数据。</p>
+<p>Claude Code 的 macOS 安装命令（在终端执行，不是在聊天框发送）：</p>
+<pre><code class="language-bash">curl -fsSL https://claude.ai/install.sh | bash
+</code></pre>
+<p>安装后新开终端，运行 <code>claude --version</code>。如果找不到命令，按官方安装页面检查 PATH；不要因此重建项目。系统要求与最新安装方式见 docs/06 的官方链接。</p>
+<p><strong>发给 Claude：</strong></p>
+<pre><code class="language-text">我在这个文件夹练习 AI-native 产品设计。先阅读 CLAUDE.md、README.md 和 package.json。
+请检查当前工作目录、Node / Git、启动命令与文件结构。不要修改代码，不要安装依赖。
+解释我应在 VS Code 的哪个终端运行开发服务器、在哪个终端与你对话，以及如何确认页面正常。
+如果遇到环境错误，请依据实际错误诊断，不要重建项目。
+</code></pre>
+<p><strong>完成标准：</strong> 任务页和组件页可打开；你知道两个终端各做什么。</p>
+<h2>1 · 让 Claude 读懂已有产品</h2>
+<p><strong>材料：</strong> CLAUDE.md、docs/03-architecture.md、src/、outputs/01-repo-map.md。</p>
+<p><strong>你操作：</strong> 发送 prompt，随后打开 Claude 提到的几个文件，看路径是否真实存在。</p>
+<pre><code class="language-text">现在只做 repo discovery，不实现 feature。
+读取 CLAUDE.md、docs/03-architecture.md，并核对真实源码。
+将发现写进 outputs/01-repo-map.md：
+1. 页面入口、列表渲染、Design System、数据服务的位置。
+2. 用户点击按钮到保存数据，预计会经过哪些模块。
+3. 现有数据测试检查什么、尚未检查什么。
+4. 本地运行、检查、构建、发布分别使用什么命令或 workflow。
+5. 新功能应接在哪里，建议新建什么文件。
+用简短中文解释，引用实际路径。只更新这份 repo map。
+</code></pre>
+<p><strong>完成标准：</strong> 你能指出“组件在哪里、数据在哪里、新 feature 接哪里”。</p>
+<h2>2 · 把基础项目放进 GitHub</h2>
+<p><strong>材料：</strong> docs/05-release-runbook.md、.gitignore、.github/workflows/ci.yml。</p>
+<p><strong>你操作：</strong> 按 docs/05 的“首次上传”创建空仓库并执行命令。保留 <code>.github</code> 文件夹——Mac Finder 默认可能不显示它，终端 git add 会包含它。不要上传 ZIP 本身。</p>
+<p><strong>发给 Claude：</strong></p>
+<pre><code class="language-text">现在建立项目基线，不实现 feature。
+先检查 git status、当前分支和 remote；如果还不是 Git 仓库，说明情况。
+阅读 docs/05-release-runbook.md，指导我创建空 GitHub 仓库并上传本地基线。
+不要猜测我的用户名、远程地址、账号或认证方式。
+本地 Git 操作前先确认没有其他项目历史或无关文件。
+说明如何在 GitHub Actions 查看 CI，以及成功时应看到哪些检查。
+本阶段不要改应用代码、不要发布网站。
+</code></pre>
+<p><strong>完成标准：</strong> GitHub 的 main 包含源码、docs 和 <code>.github</code>；CI 绿色。若认证未完成，先解决，不跳过。</p>
+<h2>3 · 学会找现有组件</h2>
+<p><strong>材料：</strong> 浏览器 <code>/components.html</code>、docs/02-design-system.md、src/design-system/、src/showcase.js。</p>
+<p><strong>你操作：</strong> 点击 Open dialog、按 Tab / Escape；点击 Preview toast；观察字段错误示例。</p>
+<p><strong>发给 Claude：</strong></p>
+<pre><code class="language-text">现在做 Design System mapping，不写新功能。
+阅读 docs/02-design-system.md、src/design-system/ 和 src/showcase.js。
+针对未来的 Create task，列出：界面元素 → 现有组件 → 源码路径 → 真实参数与返回值。
+重点解释 Button、Field、Dialog 如何组合，如何提交 form、显示 field error、显示保存失败和成功 Toast。
+把组件映射追加到 outputs/01-repo-map.md。
+指出哪些能力已存在、哪些交互需要 feature 自己负责。不要发明组件 props，不要增加依赖。
+</code></pre>
+<p><strong>完成标准：</strong> 你能解释“复用 Dialog”与“实现创建任务业务逻辑”的区别。</p>
+<h2>4 · 设计 feature，先形成实施计划</h2>
+<p><strong>材料：</strong> docs/01-product-brief.md、docs/02、docs/03、outputs/02-feature-plan.md。</p>
+<p><strong>你操作：</strong> 看清字段、默认值、失败和取消规则。让 Claude 提供方案后，你判断是否符合需求；在进入下一步前修改不合理之处。</p>
+<pre><code class="language-text">阅读 docs/01-product-brief.md、docs/02-design-system.md、docs/03-architecture.md 和已有 repo map。
+暂时不要修改应用代码。
+给出两个简短的布局方案，都复用现有 DS，并推荐其中一个。
+然后把推荐方案写进 outputs/02-feature-plan.md，包含：
+- 用户操作顺序与 modal 信息层级。
+- 字段、默认值、inline errors、loading、success、failure、cancel。
+- 键盘、窄屏和焦点行为。
+- 组件复用清单及真实 API。
+- 预计修改 / 新建文件。
+- AC01–AC10 分别怎样验证。
+严格保持 brief 范围，不新增日期、搜索、编辑或后端。
+用设计师能理解的语言解释关键取舍。
+</code></pre>
+<p><strong>完成标准：</strong> plan 足够清楚；你知道成功、失败、取消时会发生什么。</p>
+<h2>5 · 在 feature branch 里实现</h2>
+<p><strong>材料：</strong> outputs/02-feature-plan.md、CLAUDE.md、docs/01–03、现有组件和 service。</p>
+<p><strong>你操作：</strong> 确认阶段 2 已上传基线，服务器仍运行。现在明确让 Claude 动手。</p>
+<pre><code class="language-text">现在按 outputs/02-feature-plan.md 实现 Create task。
+先检查 git status 和分支；保护已有改动。在 main 基线创建并切换到 feat/create-task；若该分支已存在，先检查后复用。
+要求：
+1. 复用实际 Button、Field、Dialog、Toast、Banner 和 tokens。
+2. 新建独立 feature 模块，由 app.js 传 service 和 renderTasks 回调；避免循环依赖。
+3. 复用已有 validateTask / createTask，不重写数据层。
+4. 完成 brief 的所有状态：inline error、首个错误焦点、防重复提交、保存中禁用及阻止 Escape、失败保留输入、重试、取消清理、成功刷新与焦点回归。
+5. 按 docs/03 接入 ?failSave=1 的首次保存失败演练。
+6. 保留已有任务列表、练习工具与组件展示页，支持 390px 和 1440px。
+实现后运行 npm run check、npm test、npm run build，报告真实结果。
+说明改了哪些文件、复用了哪些组件，以及我如何在浏览器试用。
+本阶段不要 commit、push、合并或部署。
+</code></pre>
+<p><strong>完成标准：</strong> 本地页面能完成一次创建；代码改动在 feature 分支；你实际操作过它。</p>
+<h2>6 · 像设计师一样在真实界面上迭代</h2>
+<p><strong>材料：</strong> 运行中的页面、docs/04-qa-checklist.md、组件页、git diff。</p>
+<p><strong>你操作：</strong> 亲自尝试空提交、失败重试、取消、Tab、手机宽度。记录具体“观察到什么 → 希望怎样”。如果 Claude 的环境没有浏览器能力，由你执行并报告观察，不让它假称看过。</p>
+<pre><code class="language-text">现在做设计验收和小范围迭代。
+依据 docs/01、docs/02 和 docs/04 审查当前实现。
+若你有浏览器工具，实际操作并记录；没有就列出我需要亲自执行的步骤，不要声称已验证 UI。
+检查信息层级、组件一致性、错误位置、loading、关闭行为、焦点回归和窄屏。
+先列出具体问题及对应文件；修复有证据的问题，不做无关重构。
+修复后运行受影响的检查，并告诉我需要重试哪些操作。
+不要 commit、push 或发布。
+</code></pre>
+<p><strong>针对自己的观察，用这个追加 prompt：</strong></p>
+<pre><code class="language-text">我在 [页面 / 屏幕宽度] 执行 [操作]。
+实际看到：[具体行为]。
+期望行为：[具体结果]。
+请检查原因，并用现有组件和 tokens 做最小修复；解释如何复测，不改无关区域。
+</code></pre>
+<p><strong>完成标准：</strong> 你至少经历一轮“观察 → 修改 → 复测”，而不是只接受第一次生成结果。</p>
+<h2>7 · QA、检查和 Review</h2>
+<p><strong>材料：</strong> docs/04、tests/、outputs/03-qa-report.md、git diff。</p>
+<p><strong>你操作：</strong> 完成 Q01–Q17，填写实际结果；Q18 等上线后做。</p>
+<pre><code class="language-text">现在做发布前 QA 和代码 review。
+读取 docs/04，审查本分支相对 main 的 diff，检查 brief AC01–AC10。
+运行 npm run check、npm test、npm run build。
+重点审查：重复提交、失败后输入丢失、保存时被关闭、监听器重复、用户输入通过 innerHTML 注入、循环依赖、绕过 DS、刷新持久化。
+针对实际新增业务风险补必要测试，不写只检查实现字符串存在的测试。
+修复已确认的问题，然后复跑相关检查。
+将每条 QA 的 Pass / Fail / Not run、操作者和证据写进 outputs/03-qa-report.md；没有实际操作的浏览器项标为 Not run。
+说明还有哪些项需要我人工验收。不要 commit、push 或发布。
+</code></pre>
+<p><strong>完成标准：</strong> 发布前必需项通过；UI 未验证项由你完成并补记录。不要因为 6 个原始测试通过，就直接判定新功能完成。</p>
+<h2>8 · Commit、Push、创建 PR</h2>
+<p><strong>材料：</strong> diff、QA report、.github/pull_request_template.md。</p>
+<p><strong>你操作：</strong> 在 VS Code Source Control 里查看变更。能解释每个新增文件的用途，再提交。</p>
+<pre><code class="language-text">现在准备提交并创建 PR，不合并、不部署。
+先检查当前分支是 feat/create-task、git diff 与 QA 报告，确认没有凭证、无关文件或未说明的测试失败。
+总结变更和已验证 / 未验证内容；将本次 feature 和相关文档提交，push 到对应远程分支。
+按 .github/pull_request_template.md 准备 PR，标题描述用户行为，附真实检查结果、人工 QA 和限制。
+若有已认证的 GitHub 工具可创建 PR，就创建；否则给我 GitHub 上创建 PR 的具体步骤和可复制正文。
+如果认证或远程地址缺失，明确指出，不猜测、不声称已上传。
+</code></pre>
+<p><strong>完成标准：</strong> PR 的 base=main、compare=feat/create-task；CI 绿色；你看过 Files changed。截图可手工拖入 PR，勿包含个人敏感信息。</p>
+<h2>9 · 合并并真实发布</h2>
+<p><strong>材料：</strong> PR、CI、docs/05、.github/workflows/pages.yml。</p>
+<p><strong>你操作：</strong></p>
+<ol>
+<li>读 PR、检查 CI 和 QA；独立练习可自己 Review，公司项目按团队要求。</li>
+<li>GitHub 点击 Merge pull request，使用 Create a merge commit，方便回退演练。</li>
+<li>Settings → Pages → Source 选择 GitHub Actions。</li>
+<li>Actions → Release to Pages → Run workflow → 选 main → Run。</li>
+<li>等 build / deploy 成功，打开部署显示的 URL。</li>
+</ol>
+<pre><code class="language-text">我正在执行 docs/05 的正式发布步骤。
+请先核对 PR、CI、QA 报告和 pages workflow，说明是否有未完成的验收项。
+解释我接下来在 GitHub 如何合并 PR、选择 Pages 发布来源，并手动运行 main 的 Release to Pages。
+我会亲自点击合并和发布。请帮我判断结果和排查实际错误。
+不要把 GitHub Release 页面或 PR merge 当作已部署成功；以 Actions deploy 成功和实际 URL 验证为准。
+</code></pre>
+<p><strong>完成标准：</strong> 正式 URL 能打开并创建任务。初次线上只有 seed 数据是正常现象，因为本地数据不会同步过去。</p>
+<h2>10 · 上线验证与回退演练</h2>
+<p><strong>材料：</strong> 正式 URL、Q18、docs/05、outputs/04-release-log.md。</p>
+<p><strong>你操作：</strong> 正式网址创建一条任务并刷新；执行 Q18。记录 merge commit、部署 commit、Actions run、URL。再按 runbook 做回退练习；这是你自己的练习站点，可真实恢复到无 Create task 的基线，再恢复 feature。</p>
+<pre><code class="language-text">现在完成 release 验证和回退演练。
+读取 docs/05-release-runbook.md，指导我记录真实的 PR、merge commit、部署 commit、Actions run 和 URL 到 outputs/04-release-log.md。
+核对 Q18 的真实验证结果；无法访问的内容标为待验证。
+然后先检查实际 Git 历史和 PR 合并方式，给出用新分支、新 PR revert feature 的步骤；不要猜 commit SHA，不要 reset --hard 或 force-push。
+我会按步骤操作并在 GitHub 手动运行 release。
+回退后检查创建入口消失、列表仍可用；再通过 revert 回退 commit 的新 PR 恢复 feature，重新发布验证。
+最后用 5 个问题检查我是否理解：组件复用、分支、PR、CI、部署与回退。
+</code></pre>
+<p><strong>完成标准：</strong> 你能从线上结果追到具体 commit；知道如何发布、验证和撤销；日志记录真实结果。</p>
+<h2>卡住时的通用 prompt</h2>
+<pre><code class="language-text">我卡在 START_HERE 的第 [编号] 步。
+我执行的命令 / 操作是：[内容]。
+完整错误是：[粘贴错误，移除 token 等敏感信息]。
+请先定位原因，给最少的下一步；不要重建项目、跳过检查或顺便实现后面的阶段。
+</code></pre>
+<p>下一轮把 docs/07-company-transfer.md 的映射填好，再把同一流程应用到公司的真实组件库和发布机制。</p>
+</article><article id="chapter-1"><div class="file">docs/00-foundation-verification.md</div><h1>基础包验证记录</h1>
+<p>日期：2026-11-13。此记录属于材料制作者；你的 feature 验收应另填 outputs/03-qa-report.md。</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>结果</th>
+<th>范围</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>npm run check</td>
+<td>Pass</td>
+<td>所有现有 JavaScript 语法</td>
+</tr>
+<tr>
+<td>npm test</td>
+<td>Pass，6/6</td>
+<td>数据读取、校验、保存、失败、空状态、重置</td>
+</tr>
+<tr>
+<td>npm run build</td>
+<td>Pass</td>
+<td>dist 可生成</td>
+</tr>
+<tr>
+<td>HTTP smoke</td>
+<td>Pass</td>
+<td>主页、组件页、app 与 DS 模块返回成功</td>
+</tr>
+<tr>
+<td>GitHub workflows 静态检查</td>
+<td>Pass</td>
+<td>YAML 可解析，main-only 手动部署配置与官方模板核对</td>
+</tr>
+<tr>
+<td>桌面 / 手机视觉与浏览器交互</td>
+<td>Not run</td>
+<td>当前执行环境无法启动 Chromium；请在第 0 步和第 3 步按指南检查</td>
+</tr>
+<tr>
+<td>远程 GitHub CI 与 Pages</td>
+<td>Not run</td>
+<td>需要你的实际仓库与账号，第 2 和第 9 步执行</td>
+</tr>
+<tr>
+<td>Create task UI</td>
+<td>未实现</td>
+<td>故意保留为你的练习</td>
+</tr>
+</tbody></table>
+<p>本材料不会声称已完成无法执行的验证。基础代码使用 Node 24 运行本地检查；声明要求 Node 22+，GitHub workflow 配置 Node 22，但远程运行尚待执行。</p>
+</article><article id="chapter-2"><div class="file">docs/01-product-brief.md</div><h1>01 · Feature brief: Create task</h1>
+<h2>场景</h2>
+<p>Taskroom 是团队协作工具。协调者在一次演练结束后，需要把后续行动快速分配给同事。目前列表只能查看，无法新增任务。</p>
+<p>用户目标：留在当前任务页，创建一条任务，明确责任人和优先级，并立即看到结果。</p>
+<h2>范围</h2>
+<p>入口：页面标题右侧的 Create task 按钮。点击后打开居中 modal。手机上使用同一 modal，适应屏幕宽度。</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>规则</th>
+<th>初始值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Task title</td>
+<td>必填；trim 后 1–80 个 JavaScript 字符单位；纯空格无效</td>
+<td>空</td>
+</tr>
+<tr>
+<td>Owner</td>
+<td>必填；只允许 seed.js 中三个候选人</td>
+<td>空，显示 Choose an owner</td>
+</tr>
+<tr>
+<td>Priority</td>
+<td>必填；High / Medium / Low</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>系统自动填写，不显示为可编辑字段</td>
+<td>To do</td>
+</tr>
+</tbody></table>
+<p>按钮：Cancel / Create task。默认提交按钮可点击，便于学习提交后的 inline validation；保存时禁用并显示 Creating…。</p>
+<h2>必须覆盖的状态</h2>
+<ol>
+<li>初始表单：标题输入框获得焦点。</li>
+<li>错误：空标题、纯空格、81 字符、未选 Owner，在对应字段下显示错误；聚焦第一个错误字段。80 字符合法。UI 不得仅靠 maxlength 阻止你观察超长错误。</li>
+<li>保存中：防重复提交；字段及 Cancel 暂时禁用，并在保存期间阻止 Escape 关闭。</li>
+<li>成功：关闭 modal、新任务出现在第一行、总数更新、Toast 显示 Task created.；焦点回入口。</li>
+<li>保存失败：显示表单级错误、保留输入、恢复按钮、支持重试；不新增行。</li>
+<li>Cancel / Escape：未保存就关闭，不新增数据；下次打开是一份干净表单。</li>
+<li>空列表：可创建第一条任务。</li>
+<li>刷新：已保存任务仍在当前浏览器。</li>
+</ol>
+<h2>不做</h2>
+<p>编辑 / 删除 / 搜索 / 到期日 / 登录 / 后端 / AI 生成任务 / 权限管理 / 邮件通知。</p>
+<h2>验收标准</h2>
+<ul>
+<li>AC01：所有入口和字段使用既有 DS；没有复制一套按钮或表单组件。</li>
+<li>AC02：合法输入能创建，标题去除首尾空格，状态为 To do。</li>
+<li>AC03：非法输入显示 inline error，无新增数据。</li>
+<li>AC04：保存中多次点击只产生一条记录。</li>
+<li>AC05：失败保留输入并可重试成功。</li>
+<li>AC06：取消 / Escape 无保存；再次打开无旧输入与错误。</li>
+<li>AC07：创建成功后列表、数量、空状态同步更新；刷新保持数据。</li>
+<li>AC08：键盘可完成全流程；焦点不离开 modal；关闭后回入口。</li>
+<li>AC09：390px 与 1440px 宽度可操作，没有横向溢出。</li>
+<li>AC10：原列表、组件库、Reset demo data / Show empty state 均继续可用。</li>
+</ul>
+<p>练习完成后记录真实验收结果，不预先声称改善了业务转化率。</p>
+</article><article id="chapter-3"><div class="file">docs/02-design-system.md</div><h1>02 · Design System 使用说明</h1>
+<p>先打开 <code>/components.html</code>，再读源码。这里的“调用”就是导入真实组件并按其 API 使用。</p>
+<h2>组件来源</h2>
+<pre><code class="language-js">import { Button, Field, Dialog, Toast, Banner } from &#39;./design-system/components.js&#39;;
+</code></pre>
+<p>上面的相对路径适用于 <code>src/</code> 下的文件；若功能放进 <code>src/features/</code>，需改成 <code>../design-system/components.js</code>。</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>参数</th>
+<th>返回</th>
+<th>使用方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Button</td>
+<td>label, variant: primary/secondary/ghost, onClick, type, disabled</td>
+<td>button DOM</td>
+<td>append 到容器；提交按钮用 type: submit</td>
+</tr>
+<tr>
+<td>Field</td>
+<td>id, label, kind: input/select, type, options, required, hint</td>
+<td>{root, control, setError}</td>
+<td>append root；通过 control.value 取值</td>
+</tr>
+<tr>
+<td>Dialog</td>
+<td>title, onClose</td>
+<td>{root, body, footer, open, close}</td>
+<td>把 form 放 body，按钮放 form 内；open 调用 showModal</td>
+</tr>
+<tr>
+<td>Badge</td>
+<td>label, tone: default/success/warning</td>
+<td>span DOM</td>
+<td>优先级或状态</td>
+</tr>
+<tr>
+<td>Toast</td>
+<td>message 字符串</td>
+<td>DOM</td>
+<td>Toast(&#39;Task created.&#39;)</td>
+</tr>
+<tr>
+<td>Banner</td>
+<td>message 字符串</td>
+<td>DOM</td>
+<td>表单级错误，role=alert</td>
+</tr>
+</tbody></table>
+<h2>示例：复用一个字段</h2>
+<pre><code class="language-js">const title = Field({
+  id: &#39;task-title&#39;, label: &#39;Task title&#39;, required: true,
+  hint: &#39;Use 80 characters or fewer.&#39;
+});
+form.append(title.root);
+title.setError(&#39;Enter a task title.&#39;);
+title.control.focus();
+</code></pre>
+<p>这是 API 示例，不是完成后的功能。完整交互需要你在练习阶段连接。</p>
+<h2>Tokens</h2>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>既有值 / 变量</th>
+<th>规则</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>主色</td>
+<td>--color-primary</td>
+<td>主要操作和焦点</td>
+</tr>
+<tr>
+<td>文字</td>
+<td>--color-text / --color-muted</td>
+<td>复用，不在 feature 中随意加灰色</td>
+</tr>
+<tr>
+<td>错误</td>
+<td>--color-danger / --color-danger-soft</td>
+<td>同时使用文字说明，不只变红</td>
+</tr>
+<tr>
+<td>间距</td>
+<td>--space-1…7：4/8/12/16/24/32/48px</td>
+<td>新布局优先使用现有变量</td>
+</tr>
+<tr>
+<td>圆角</td>
+<td>--radius-sm/md/lg</td>
+<td>6/10/16px</td>
+</tr>
+<tr>
+<td>字号</td>
+<td>--font-sm/md/lg/title</td>
+<td>13/15/20/32px</td>
+</tr>
+</tbody></table>
+<h2>组合约束</h2>
+<ul>
+<li>一个界面只保留一个主要提交动作；Cancel 用 secondary。</li>
+<li>用 form 的 submit 事件，支持 Enter；设置 form.noValidate=true，统一走已有数据层校验，以呈现一致的 inline error。</li>
+<li>推荐在 dialog.body 中放整个 form，把 <code>.ds-dialog-actions</code> 容器也放进 form，避免提交按钮脱离 form。</li>
+<li>每次打开可创建新 dialog；关闭后 root.remove()，避免 DOM 累积。</li>
+<li>原生 dialog 提供 modal 基础行为；仍需验收 Tab、Shift+Tab、Escape 和焦点回归。</li>
+<li>保存中在 dialog.root 的 cancel 事件中 preventDefault()；完成或失败后恢复正常关闭行为。</li>
+<li>新样式加到 app.css 的功能区域；只有可复用能力才修改组件库，并同步 showcase。</li>
+</ul>
+</article><article id="chapter-4"><div class="file">docs/03-architecture.md</div><h1>03 · 技术地图与数据契约</h1>
+<h2>文件地图</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>职责</th>
+<th>练习时是否常改</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>src/app.js</td>
+<td>页面框架、列表渲染、练习工具</td>
+<td>是：接入新功能</td>
+</tr>
+<tr>
+<td>src/app.css</td>
+<td>页面布局、响应式</td>
+<td>少量</td>
+</tr>
+<tr>
+<td>src/design-system/*</td>
+<td>组件和 tokens</td>
+<td>优先复用</td>
+</tr>
+<tr>
+<td>src/data/task-service.js</td>
+<td>校验、创建、读取、持久化</td>
+<td>原有逻辑通常不用改</td>
+</tr>
+<tr>
+<td>src/data/seed.js</td>
+<td>初始任务、人员、优先级</td>
+<td>不用改</td>
+</tr>
+<tr>
+<td>src/showcase.js</td>
+<td>组件实例展示</td>
+<td>组件 API 变化时更新</td>
+</tr>
+<tr>
+<td>scripts/*</td>
+<td>本地服务、语法检查、构建</td>
+<td>通常不用改</td>
+</tr>
+<tr>
+<td>tests/*</td>
+<td>Node 自带测试</td>
+<td>按新增行为补充</td>
+</tr>
+<tr>
+<td>.github/workflows/*</td>
+<td>CI 与手动发布</td>
+<td>本练习已备好</td>
+</tr>
+</tbody></table>
+<p>建议新增 <code>src/features/create-task.js</code>，导出 <code>mountCreateTask({container,service,onCreated})</code>。由 app.js 传入入口容器、现有 service 和 renderTasks。功能模块不要反向 import app.js。</p>
+<h2>已有数据能力</h2>
+<pre><code class="language-js">const service = createTaskService({storage: localStorage});
+service.listTasks(); // 同步返回任务数组；读取失败会抛异常
+await service.createTask({title,owner,priority}); // 成功返回 task
+service.reset(); // 移除保存数据，下次读取回到 3 条 seed
+</code></pre>
+<p>createTask 的内部步骤：校验 → 模拟 500ms 延迟 → 可选故障 → 构造任务 → 写 localStorage → 返回。校验错误有 <code>error.fields</code>；保存错误用表单级 Banner。UI 应捕获错误。</p>
+<p>记录：<code>{id, title, owner, priority, status, createdAt}</code>。新任务 prepend 到数组，status 固定 To do。</p>
+<h2>可重复的失败演练</h2>
+<p>在新 feature 中加入仅用于练习的故障入口：</p>
+<pre><code class="language-js">// 由 Claude 在实现阶段接入。基础包尚无提交 UI。
+let failNext = new URLSearchParams(location.search).has(&#39;failSave&#39;);
+// 每次调用前：
+const simulateFailure = failNext;
+failNext = false;
+await service.createTask(draft, { simulateFailure });
+</code></pre>
+<p>用 <code>http://localhost:5173/?failSave=1</code> 打开。输入合法内容，第一次提交失败，第二次重试成功。failNext 在功能挂载时初始化，不能每次 submit 都重新读取 URL，否则无法重试成功。保持页面不刷新进行重试。</p>
+<h2>空状态与重置</h2>
+<p>列表底部已有 Show empty state 和 Reset demo data。前者写入空数组，后者删除练习数据恢复种子。使用同一浏览器和同一网址端口。</p>
+<h2>构建和部署</h2>
+<p><code>npm run build</code> 只复制 index.html、components.html、src 到 dist，不发布 docs、outputs、测试或 CLAUDE.md。所有资源使用相对路径，兼容 GitHub Pages 的仓库子路径。</p>
+<p>这不是 React 工程，没有 bundler、服务器 API 或数据库。此选择减少初学者环境问题；公司练习时用公司真实栈替换，不要直接搬入生产仓库。</p>
+</article><article id="chapter-5"><div class="file">docs/04-qa-checklist.md</div><h1>04 · QA checklist</h1>
+<p>每项记录 Pass / Fail / Not run + 证据。Code review 不能代替实际浏览器操作。</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>操作</th>
+<th>期望</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Q01</td>
+<td>打开原页面和组件库</td>
+<td>原始 3 条记录正常；无 console error</td>
+</tr>
+<tr>
+<td>Q02</td>
+<td>点击 Create task</td>
+<td>打开 modal；标题框聚焦</td>
+</tr>
+<tr>
+<td>Q03</td>
+<td>直接提交、输入全空格提交</td>
+<td>字段错误；无保存；聚焦首个错误</td>
+</tr>
+<tr>
+<td>Q04</td>
+<td>80 字符和 81 字符分别提交</td>
+<td>80 成功；81 inline error</td>
+</tr>
+<tr>
+<td>Q05</td>
+<td>有标题但 Owner 空</td>
+<td>Owner 错误；无新增</td>
+</tr>
+<tr>
+<td>Q06</td>
+<td>合法输入，保留首尾空格</td>
+<td>第一行出现 trim 后标题；To do；数量 +1</td>
+</tr>
+<tr>
+<td>Q07</td>
+<td>保存期间快速双击 / Enter</td>
+<td>按钮呈 Creating…；只新增 1 条</td>
+</tr>
+<tr>
+<td>Q08</td>
+<td>保存期间 Escape</td>
+<td>modal 保持；状态可理解</td>
+</tr>
+<tr>
+<td>Q09</td>
+<td>?failSave=1 页面第一次合法提交</td>
+<td>Banner 错误；输入保留；无新增</td>
+</tr>
+<tr>
+<td>Q10</td>
+<td>不刷新，在同一 modal 重试</td>
+<td>成功；只新增 1 条</td>
+</tr>
+<tr>
+<td>Q11</td>
+<td>输入后 Cancel 或 Escape</td>
+<td>无新增；焦点回入口；再次打开干净</td>
+</tr>
+<tr>
+<td>Q12</td>
+<td>Tab、Shift+Tab、Enter</td>
+<td>焦点可见；modal 内循环；可提交</td>
+</tr>
+<tr>
+<td>Q13</td>
+<td>成功后刷新浏览器</td>
+<td>新数据还在</td>
+</tr>
+<tr>
+<td>Q14</td>
+<td>Show empty state 后创建</td>
+<td>空状态消失，显示 1 条和正确统计</td>
+</tr>
+<tr>
+<td>Q15</td>
+<td>Reset demo data</td>
+<td>恢复原 3 条，不产生 console error</td>
+</tr>
+<tr>
+<td>Q16</td>
+<td>390×844、1440×900</td>
+<td>无横向溢出；字段、按钮完整可操作</td>
+</tr>
+<tr>
+<td>Q17</td>
+<td>重复打开 / 关闭 5 次</td>
+<td>无多重监听导致的重复保存；无旧错误</td>
+</tr>
+<tr>
+<td>Q18</td>
+<td>正式发布 URL 重做 Q02/Q06/Q13</td>
+<td>发布环境可操作；相对资源路径正常</td>
+</tr>
+</tbody></table>
+<p>自动检查：<code>npm run check</code>、<code>npm test</code>、<code>npm run build</code>。初始 6 个测试覆盖数据层；新功能需要验收 UI，不能把已有测试通过当成功能完成。</p>
+<p>若 Claude 能使用浏览器自动化，可让它补足关键行为测试并运行；若当前没有浏览器工具，亲自执行以上清单，在 outputs/03-qa-report.md 中注明“人工验证”。不用为了形式添加只检查字符串存在的测试。</p>
+</article><article id="chapter-6"><div class="file">docs/05-release-runbook.md</div><h1>05 · GitHub / CI / Release runbook</h1>
+<p>本练习：GitHub 保存源码 → PR 运行 CI → 合并 main → 手动运行 Pages workflow → URL 验证。<strong>Merge 不会自动部署。</strong> 无 PR 在线预览；PR 的 CI 产物可下载后本地查看。</p>
+<h2>A. 首次上传</h2>
+<ol>
+<li>GitHub 网页创建仓库 <code>ai-design-foundation</code>。建议用个人练习 public 仓库，便于使用 Pages；所有内容保持虚构。不要自动添加 README、license、.gitignore，确保仓库为空。</li>
+<li>本地项目根目录（package.json 所在处）打开终端。先 <code>git status</code>；如果显示已是其他仓库的一部分，停止并确认目录，不要嵌套初始化。</li>
+<li>若未初始化，逐条执行：</li>
+</ol>
+<pre><code class="language-bash">git init -b main
+git add .
+git status
+git commit -m &quot;chore: add Taskroom design practice foundation&quot;
+</code></pre>
+<p>首次 commit 可能要求 user.name / user.email。使用你自己的 GitHub 资料；可用 GitHub Settings → Emails 显示的 noreply 邮箱。由你填写真实值。</p>
+<ol start="4">
+<li>在 GitHub 新仓库页面复制实际 HTTPS remote。运行下列命令前，把 <code>YOUR_GITHUB_USERNAME</code> 替换成实际账号；仓库名不同也要对应修改：</li>
+</ol>
+<pre><code class="language-bash">git remote add origin https://github.com/YOUR_GITHUB_USERNAME/ai-design-foundation.git
+git push -u origin main
+</code></pre>
+<p>如果 origin 已存在，先 <code>git remote -v</code>，不要重复添加或盲目覆盖。</p>
+<p>认证优先用 GitHub 支持的浏览器登录 / credential manager 或 GitHub Desktop。GitHub 账号密码不是 HTTPS Git 的有效密码；不要把 token 发给 Claude 或写进文件。也可以使用你已经配置好的 SSH。</p>
+<ol start="5">
+<li>GitHub → Actions → CI，确认 verify 运行成功。无需 npm install，因为没有第三方依赖。</li>
+</ol>
+<h2>B. 分支与 PR</h2>
+<pre><code class="language-bash">git switch main
+git pull --ff-only
+git switch -c feat/create-task
+</code></pre>
+<p>实现、检查后提交并 push。只在确认 diff 属于本次功能后暂存文件；不要把不相关变更一起提交。</p>
+<pre><code class="language-bash">git status
+git diff
+git add src tests outputs
+git commit -m &quot;feat: create tasks from the task list&quot;
+git push -u origin feat/create-task
+</code></pre>
+<p>若有其他应提交的文件，检查后逐个 add。GitHub → Pull requests → New pull request → base main / compare feat/create-task。填写模板，检查 CI。单人练习自己 Review 不等于独立审查；公司按其规则执行。</p>
+<p>CI 包含语法、数据测试、构建，不自动验收所有 UI。产物名 app-build；如果下载 PR 产物，可解压到单独文件夹，用本机静态服务器查看，别覆盖工作目录。</p>
+<h2>C. 手动发布</h2>
+<ol>
+<li>验收通过后在 GitHub 合并 PR。为方便回退，选择 Create a merge commit。</li>
+<li>仓库 Settings → Pages → Build and deployment → Source 选 GitHub Actions。</li>
+<li>Actions → Release to Pages → Run workflow，Branch 选 main。</li>
+<li>workflow 在 main 上重新运行 check / test / build，上传 dist，然后 deploy。</li>
+<li>在成功的 deploy job / environment 中打开实际 URL。通常是 <code>https://账号.github.io/仓库名/</code>，以实际返回地址为准。</li>
+<li>执行 Q18，记录到 outputs/04-release-log.md。日志修改可单独提文档 PR；不必为了记录日志重复部署应用。</li>
+</ol>
+<p>workflow 只允许 main；其他分支触发会跳过。没有设置 required reviewer 时手动点 Run 就是发布触发点；组织若配置 environment 审批，还需按其要求完成。</p>
+<p>GitHub Release / tag 是版本记录，不会因创建它就自动部署本项目。</p>
+<h2>D. 回退：保留历史，重新部署</h2>
+<p>此站点没有 feature flag，练习用 revert 恢复旧代码。不删 localStorage，已有任务数据可以继续保留。</p>
+<ol>
+<li>从 PR 页面找到实际 feature merge commit。记下 SHA，不使用下方占位符原样运行。</li>
+<li>确认工作区干净，更新 main，创建 <code>revert/create-task</code> 分支。</li>
+<li>若确实使用了 merge commit：<code>git revert -m 1 ACTUAL_FEATURE_MERGE_SHA</code>。</li>
+<li>若使用 squash merge，应对单个 squash commit 执行 <code>git revert ACTUAL_SQUASH_SHA</code>，不用 <code>-m 1</code>。不要凭猜测选命令。</li>
+<li>运行 check / test / build，push 新分支，创建 PR，审查后合并。</li>
+<li>再手动运行 main 的 Release to Pages。单纯 revert / merge 还没改变线上。</li>
+<li>正式网址刷新，确认创建入口消失、任务列表正常。</li>
+<li>恢复 feature：从更新后的 main 创建恢复分支，对上面生成的“回退内容 commit”做普通 <code>git revert ACTUAL_REVERT_COMMIT_SHA</code>，检查、PR、合并、再部署。不要误用包含它的 PR merge commit。</li>
+</ol>
+<p>遇到冲突，让 Claude 先解释冲突和目标行为再修复，检查通过后继续。不要 force-push、reset --hard 或删除 main。</p>
+<h2>E. 常见问题</h2>
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>先检查</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>git push 失败</td>
+<td>remote 是否正确、GitHub 认证、仓库权限；不要改应用代码</td>
+</tr>
+<tr>
+<td>CI 不出现</td>
+<td>.github/workflows 是否上传、Actions 是否启用</td>
+</tr>
+<tr>
+<td>Pages 404</td>
+<td>发布来源是否 GitHub Actions；deploy 是否成功；是否打开仓库子路径</td>
+</tr>
+<tr>
+<td>Run workflow 不出现</td>
+<td>pages.yml 是否已在 main；是否有 workflow_dispatch</td>
+</tr>
+<tr>
+<td>deploy 权限失败</td>
+<td>pages:write、id-token:write、组织策略、github-pages 环境限制</td>
+</tr>
+<tr>
+<td>线上仍旧界面</td>
+<td>最近部署 SHA 是否为 feature 合并之后；是否实际点过手动发布</td>
+</tr>
+<tr>
+<td>本地新增数据线上没有</td>
+<td>localStorage 按 origin 隔离，预期行为</td>
+</tr>
+</tbody></table>
+<p>官方参考链接见 docs/06。</p>
+</article><article id="chapter-7"><div class="file">docs/06-glossary-and-resources.md</div><h1>06 · 必要术语与官方资源</h1>
+<p>材料准备日期：2026-11-13。界面和安装方式可能更新，以官方页面为准。</p>
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>在这次练习里的含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Repo / 仓库</td>
+<td>整个项目和它的变更历史</td>
+</tr>
+<tr>
+<td>Local / 本地</td>
+<td>你电脑上的文件和开发服务器</td>
+</tr>
+<tr>
+<td>Branch / 分支</td>
+<td>在独立版本里做 feature，暂不改 main</td>
+</tr>
+<tr>
+<td>Diff</td>
+<td>这次具体改动的内容</td>
+</tr>
+<tr>
+<td>Commit</td>
+<td>一次有说明、可追溯的代码快照</td>
+</tr>
+<tr>
+<td>Push</td>
+<td>把本地 commits 上传 GitHub</td>
+</tr>
+<tr>
+<td>PR / Pull Request</td>
+<td>请求把分支合并进 main，并展示差异和检查</td>
+</tr>
+<tr>
+<td>CI</td>
+<td>自动运行语法检查、测试、构建</td>
+</tr>
+<tr>
+<td>Build</td>
+<td>准备可部署的 dist 文件</td>
+</tr>
+<tr>
+<td>Deploy</td>
+<td>把构建产物送到托管环境</td>
+</tr>
+<tr>
+<td>Release</td>
+<td>决定向用户交付某个版本；此练习手动部署即公开交付</td>
+</tr>
+<tr>
+<td>Token（设计）</td>
+<td>颜色、间距等设计变量；不同于认证 token</td>
+</tr>
+<tr>
+<td>Component</td>
+<td>可复用 UI 实现；要读真实参数和返回值</td>
+</tr>
+<tr>
+<td>CLAUDE.md</td>
+<td>Claude 的项目说明，不是组件库本身</td>
+</tr>
+<tr>
+<td>Agent</td>
+<td>能读取、修改文件并调用工具执行任务的 AI；结果仍需验收</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td>工具 / 数据连接协议；本次本地代码练习不依赖 MCP</td>
+</tr>
+<tr>
+<td>Revert</td>
+<td>通过新 commit 撤销已有 commit，保留历史</td>
+</tr>
+</tbody></table>
+<h2>安装与入门</h2>
+<ul>
+<li>VS Code：<a href="https://code.visualstudio.com/">https://code.visualstudio.com/</a></li>
+<li>Node.js：<a href="https://nodejs.org/en/download">https://nodejs.org/en/download</a> （选择 22+ 的受支持 LTS）</li>
+<li>Git：<a href="https://git-scm.com/downloads">https://git-scm.com/downloads</a></li>
+<li>Claude Code 入门：<a href="https://code.claude.com/docs/en/overview">https://code.claude.com/docs/en/overview</a></li>
+<li>Claude Code 安装：<a href="https://code.claude.com/docs/en/setup">https://code.claude.com/docs/en/setup</a></li>
+<li>Claude Code 项目说明：<a href="https://code.claude.com/docs/en/memory">https://code.claude.com/docs/en/memory</a></li>
+<li>Claude 官方第一天指南：<a href="https://support.claude.com/en/articles/14552382-your-first-day-in-claude-code">https://support.claude.com/en/articles/14552382-your-first-day-in-claude-code</a></li>
+</ul>
+<h2>按需查，不用先通读</h2>
+<ul>
+<li>GitHub PR：<a href="https://docs.github.com/en/pull-requests">https://docs.github.com/en/pull-requests</a></li>
+<li>GitHub HTTPS 认证：<a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github">https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github</a></li>
+<li>Pages 发布来源：<a href="https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site">https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site</a></li>
+<li>Pages 自定义 workflow：<a href="https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages">https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages</a></li>
+<li>官方静态 Pages 模板：<a href="https://github.com/actions/starter-workflows/blob/main/pages/static.yml">https://github.com/actions/starter-workflows/blob/main/pages/static.yml</a></li>
+<li>发布环境：<a href="https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments">https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments</a></li>
+</ul>
+<p>先掌握 branch、diff、PR、CI、deploy。Agents 分工、MCP、Figma 连接可以在完成第一轮后再加。</p>
+</article><article id="chapter-8"><div class="file">docs/07-company-transfer.md</div><h1>07 · 如何迁移到公司的真实工作</h1>
+<p>这次先练交付路径。进入公司仓库后，第一步重新 discovery，不把此项目的技术假设直接带进去。</p>
+<table>
+<thead>
+<tr>
+<th>练习里的材料</th>
+<th>公司需要找到的对应物</th>
+<th>填实际位置 / 负责人</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>src/design-system</td>
+<td>React / Vue 组件包、源码或依赖名</td>
+<td></td>
+</tr>
+<tr>
+<td>tokens.css</td>
+<td>公司 tokens、主题系统</td>
+<td></td>
+</tr>
+<tr>
+<td>components.html</td>
+<td>Storybook / 组件文档 / Figma 对照</td>
+<td></td>
+</tr>
+<tr>
+<td>CLAUDE.md</td>
+<td>团队已有 AI 指令、编码与设计约束</td>
+<td></td>
+</tr>
+<tr>
+<td>product brief</td>
+<td>PM brief、Issue、验收标准</td>
+<td></td>
+</tr>
+<tr>
+<td>task-service.js</td>
+<td>API、类型、请求库、错误处理</td>
+<td></td>
+</tr>
+<tr>
+<td>localStorage</td>
+<td>真实后端、权限、数据契约</td>
+<td></td>
+</tr>
+<tr>
+<td>CI</td>
+<td>团队 lint、类型、测试、安全和构建检查</td>
+<td></td>
+</tr>
+<tr>
+<td>本地预览</td>
+<td>团队开发环境、PR preview、staging</td>
+<td></td>
+</tr>
+<tr>
+<td>自己 Review</td>
+<td>CODEOWNERS、设计 / 工程审查人</td>
+<td></td>
+</tr>
+<tr>
+<td>手动 Pages</td>
+<td>团队发布流程、feature flag、监控和回退</td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>向团队索取的最小信息</h2>
+<ol>
+<li>一个可本地启动、允许设计师改动的仓库。</li>
+<li>DS 的代码入口和一页已正确使用 DS 的页面。</li>
+<li>一个已经上线的小 feature PR，作为提交与发布范例。</li>
+<li>staging / preview 怎么打开，谁 Review，谁有发布权限。</li>
+<li>公司批准的 Claude 使用方式与账号，哪些代码 / 数据允许送入该环境。</li>
+</ol>
+<p>拿到后给 Claude 的第一段 prompt：</p>
+<pre><code class="language-text">先读取本仓库已有项目指令，遵守团队约定，不套用我的练习项目结构。
+请定位真实 DS、tokens、相似 feature、API、测试、预览、PR 和 release 机制。
+引用实际路径，列出已确认与尚未确认的信息。暂时不改代码。
+</code></pre>
+<p>在公司项目中，设计师可以提交 PR 或发布到什么环境，取决于团队权限和流程；AI 工具本身不会赋予这些权限。</p>
+</article></div></main><script>
+for(const pre of document.querySelectorAll('pre')){const button=document.createElement('button');button.className='copy';button.textContent='复制';button.addEventListener('click',async()=>{const text=pre.querySelector('code').textContent;try{await navigator.clipboard.writeText(text);button.textContent='已复制';setTimeout(()=>button.textContent='复制',1500);}catch{const selection=getSelection();const range=document.createRange();range.selectNodeContents(pre.querySelector('code'));selection.removeAllRanges();selection.addRange(range);button.textContent='已选中，请复制';}});pre.append(button);}
+</script></body></html>
