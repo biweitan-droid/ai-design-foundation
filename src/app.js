@@ -1,5 +1,6 @@
 import {Button,Badge,Banner} from './design-system/components.js';
 import {createTaskService} from './data/task-service.js';
+import {mountCreateTask} from './features/create-task.js';
 const service=createTaskService({storage:localStorage});
 const app=document.querySelector('#app');
 app.innerHTML=`<div class="shell"><aside class="sidebar"><a class="brand" href="./index.html">◧ Taskroom</a><p class="workspace-label">DESIGN LAB</p><div class="nav-active">▤ &nbsp; Tasks</div><a class="nav-link" href="./components.html">◈ &nbsp; Component library</a><div class="sidebar-bottom">Practice workspace<br><span>Foundation v0.1</span></div></aside><main class="main"><div class="topbar"><span>Workspace / Tasks</span><span class="avatar" aria-label="Practice user Riley">R</span></div><div class="content"><p class="eyebrow">KEEP THE TEAM MOVING</p><div class="page-header"><div><h1>Tasks</h1><p class="muted">A shared place for your team's next steps.</p></div><div id="feature-entry"><!-- Exercise: add Create task here. --></div></div><div class="stats" id="stats"></div><section class="task-panel" aria-label="Team tasks"><div class="panel-heading"><h2>All tasks</h2><span class="muted" id="count"></span></div><div id="task-list"></div></section><p class="footnote">Demo data · Saved on this browser only · <a href="./components.html">Explore the design system ↗</a></p><div class="lab-tools" id="lab-tools"></div></div></main></div>`;
@@ -16,6 +17,5 @@ export function renderTasks() {
 }
 const tools=document.querySelector('#lab-tools');const label=document.createElement('span');label.textContent='Practice tools';tools.append(label,Button({label:'Reset demo data',variant:'ghost',onClick:()=>{service.reset();renderTasks();}}),Button({label:'Show empty state',variant:'ghost',onClick:()=>{localStorage.setItem('taskroom.tasks.v1','[]');renderTasks();}}));
 renderTasks();
-// Exercise boundary: import or mount your Create Task feature here.
-// Reuse service and renderTasks. The foundation deliberately contains no form.
+mountCreateTask({container:document.querySelector('#feature-entry'),service,onCreated:renderTasks});
 export {service};
