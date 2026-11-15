@@ -58,7 +58,7 @@
 实现时要注意的事实：
 - `Dialog` 只提供 `body` / `footer`，**不自带 `<form>`**，需要 feature 自己在 body 里建 form，否则 Enter 提交和 submit 事件要另外处理。
 - 原生 dialog 按 Escape 会触发 `cancel` → `close` → 调用 `onClose`。保存进行中按 Escape 该怎么处理，Dialog 没有内置方案，需要在 feature 层决定（比如保存中拦截 cancel）。
-- 同一个 Dialog 实例会被重复打开，所以每次打开时要决定清空还是保留上次输入；按规则，失败后应保留输入。
+- docs/02 建议每次打开都新建一个 Dialog，关闭后执行 `root.remove()`，这样下次打开自然是干净的表单（AC06）。“失败后保留输入”指的是同一次打开、还没关闭的期间。（阶段 3 修正：阶段 1 原先写的是复用同一个实例。）
 
 ## 3. 现有数据测试（tests/task-service.test.js，6 条，`npm test` 全部通过）
 
@@ -104,3 +104,91 @@
 - 本文件夹**还不是 Git 仓库**，还没有 `feat/create-task` 分支，也没有 remote，所以 CI / Pages 还没有实际跑过。这些在阶段 2 处理。
 - 目前只在命令行里确认过 5173 上的页面和 `src/app.js` 返回 HTTP 200，**还没有在浏览器里目测**页面、移动端布局和组件页交互。
 - 组件页的 Dialog 键盘行为（Tab 是否困在弹窗内、Escape、焦点归还）在源码里有对应设计，但没有人工验证过。
+
+---
+
+## 6. Design System mapping：Create task（阶段 3 追加）
+
+依据：docs/02-design-system.md、docs/01-product-brief.md、`src/design-system/components.js`、`components.css`、`tokens.css`、`src/showcase.js`。参数和返回值以源码为准；下表**只列源码里真实存在的参数**。
+
+### 6.1 界面元素 → 组件 → 真实 API
+
+| 界面元素 | 组件 | 源码 | 真实参数 → 返回 | 用法 |
+|---|---|---|---|---|
+| 页头入口 “Create task” | Button | components.js:2-8 | `Button({label, variant='primary', onClick, type='button', disabled=false})` → `HTMLButtonElement` | `variant:'primary'`，放进 `#feature-entry`；它也是关闭后焦点要回到的元素 |
+| 弹窗容器 | Dialog | components.js:25-32 | `Dialog({title, onClose})` → `{root, body, footer, open(), close()}` | `title:'Create task'`；整个 form 放进 `body` |
+| 表单本身 | （无组件）原生 `<form>` | — | — | feature 自己创建，设置 `noValidate = true`，监听 `submit` |
+| Task title | Field | components.js:12-24 | `Field({id, label, kind='input', type='text', options=[], required=false, hint=''})` → `{root, control, setError(message='')}` | `id:'task-title'`、`required:true`、`hint:'Use 80 characters or fewer.'`；**不要设置 maxlength**（产品简介要求能看到超长错误） |
+| Owner | Field（select） | 同上 | 同上，`kind:'select'`，`options:[{label, value}]` | 第一项是 `{label:'Choose an owner', value:''}`，其余来自 `seed.js` 的 `owners` |
+| Priority | Field（select） | 同上 | 同上 | 选项来自 `priorities`；**Field 没有 value 参数**，初始值 Medium 要在创建后写 `control.value = 'Medium'` |
+| Cancel | Button | components.js:2-8 | 同上 | `variant:'secondary'`、`onClick: () => dialog.close()` |
+| Create task（提交） | Button | 同上 | 同上 | `variant:'primary'`、`type:'submit'`，**必须放在 form 里面** |
+| 字段错误 | Field.setError | components.js:23 | `setError(message)`：显示 `.ds-error`，设置 `aria-invalid`；传 `''` 隐藏错误 | 错误文案直接用 `error.fields` 里的值 |
+| 保存失败 | Banner | components.js:37-39 | `Banner(message)` → `<p class="ds-banner" role="alert">` | 插到 form 顶部；文案用 `error.message`（'Task could not be saved. Please try again.'） |
+| 成功提示 | Toast | components.js:33-36 | `Toast(message)` → `<div class="ds-toast" role="status">`，自己挂到 body 上，4 秒后移除 | `Toast('Task created.')`，在 dialog 关闭**之后**调用 |
+| 列表里的新行 | Badge（已有） | components.js:9-11 | `Badge({label, tone})` | 由 `renderTasks()` 渲染，feature 不用碰 |
+
+不需要新增组件，也不需要改 `components.js` / `components.css`。`.ds-field`、`.ds-dialog-actions`、`.ds-banner` 的现有样式已经够用；如果 Banner 和字段之间需要间距，在 `src/app.css` 的功能区域用 `--space-*` 补一行即可。
+
+### 6.2 Button + Field + Dialog 的组合（DOM 结构）
+
+```
+dialog.root  <dialog class="ds-dialog" aria-labelledby=…>   ← Dialog 生成
+├─ h2  "Create task"                                         ← Dialog 生成
+├─ dialog.body
+│   └─ <form noValidate>                                     ← feature 自己创建
+│       ├─ [Banner]           只在保存失败时插入
+│       ├─ title.root         Field
+│       ├─ owner.root         Field(select)
+│       ├─ priority.root      Field(select)
+│       └─ <div class="ds-dialog-actions">                   ← feature 自己创建，复用现有 class
+│           ├─ Button Cancel  (secondary)
+│           └─ Button Create task (primary, type:'submit')
+└─ dialog.footer             留空（docs/02 建议把按钮放进 form，而不是 footer）
+```
+
+为什么不用 `footer`：`footer` 在 form 外面，submit 按钮放在那里就不属于这个 form，按 Enter 也不会提交。
+
+### 6.3 提交流程（feature 负责串起来）
+
+1. 在 `form` 的 `submit` 事件里先 `event.preventDefault()`。这样输入框里按 Enter 和点击按钮走的是同一条路径。
+2. 清空上一次的状态：三个字段都 `setError('')`，并移除旧的 Banner。
+3. 组成 `draft = {title: title.control.value, owner: owner.control.value, priority: priority.control.value}`（trim 交给数据层处理）。
+4. 进入 loading：提交按钮设 `disabled = true` 并把 `textContent` 改成 `Creating…`；Cancel 和三个 `control` 都设 `disabled = true`。
+5. 调用 `await service.createTask(draft, {simulateFailure})`，然后按结果分三条路：
+   - **校验错误**（`error.fields` 存在）：对每个出错字段调用 `setError(error.fields[key])`，并按 title → owner → priority 的顺序**聚焦第一个错误字段**。注意：校验错误是在 500ms 等待**之前**同步抛出的，所以 loading 只会一闪而过。
+   - **保存失败**（没有 `error.fields`）：在 form 顶部插入 `Banner(error.message)`，保留所有输入，dialog 不关闭。
+   - **成功**：`dialog.close()` → 焦点回到入口按钮 → `onCreated()`（即 `renderTasks`）→ `Toast('Task created.')`。
+6. 失败或校验错误之后，在 `finally` 里恢复按钮文案和所有 disabled 状态，才能重试。成功时 dialog 已经移除，不需要恢复。
+
+### 6.4 已有能力 vs. feature 要自己负责
+
+**组件已经提供的**
+- Button：variant 样式、`disabled` 的视觉（opacity 0.55）、`type:'submit'`、`:focus-visible` 焦点环。
+- Field：label 和 control 通过 `htmlFor` / `id` 关联；`required:true` 时 label 加 ` *`；错误和提示通过 `aria-describedby` 关联到 control；`setError` 同时控制 `aria-invalid` 和红色边框。
+- Dialog：原生 `showModal()` 提供模态、背景遮罩和 Tab 范围限制；按 Escape 会触发 `cancel` → `close`；`open()` 时记住 `document.activeElement`，关闭时把焦点还回去，再调用 `onClose`；`aria-labelledby` 指向标题。
+- Banner：`role="alert"`，插入时读屏会播报。
+- Toast：`role="status"`，自动挂载，4 秒后自动移除。
+
+**feature 必须自己做（组件没有对应参数，不要编造 props）**
+| 需求 | 做法 | 依据 |
+|---|---|---|
+| form 和 Enter 提交 | 自己建 `<form>`，`noValidate = true`，监听 submit | docs/02 |
+| 读取输入值 | `field.control.value`（Field 没有 getValue / value 参数） | components.js:23 |
+| Priority 默认 Medium | 创建后设 `control.value = 'Medium'` | 产品简介字段表 |
+| loading / Creating… | 直接改 `button.disabled` 和 `button.textContent`（Button 没有 loading 参数） | 产品简介 §3 |
+| 禁用字段 | 直接设 `control.disabled = true`（Field 没有 disabled 参数） | 产品简介 §3 |
+| 保存中阻止 Escape | `dialog.root.addEventListener('cancel', e => { if (saving) e.preventDefault(); })` | docs/02 |
+| 聚焦第一个错误字段 | 自己判断顺序，再调用 `control.focus()` | CLAUDE.md |
+| 打开时聚焦标题 | `dialog.open()` 之后执行 `title.control.focus()` | 产品简介 §1 |
+| Banner 不重复堆叠 | 自己保存引用，下次提交前 `remove()` | Banner 每次调用都创建新元素 |
+| 每次打开都是干净表单 | 每次 open 新建 Dialog + Field，在 `onClose` 里 `dialog.root.remove()` | docs/02、AC06 |
+| 区分两类错误 | 有 `error.fields` 是校验错误，否则是保存失败 | task-service.js:15、17 |
+| 故障演练 | 挂载时读一次 `?failSave`，用完一次就清除 | docs/03 |
+| 成功后刷新列表 | 调用传入的 `onCreated`，不 import app.js | CLAUDE.md |
+
+### 6.5 需要在验收阶段实际测试的风险（目前只是从源码推断，尚未验证）
+- **焦点归还依赖 `document.activeElement`**：Dialog 在 `open()` 时记下当时有焦点的元素。在 macOS Safari 中，用鼠标点击按钮默认不会让按钮获得焦点，这时记到的可能是 `body`，关闭后焦点就回不到入口按钮。需要在 Safari 里实际测试。如果确实有问题，可以在 feature 里打开前先 `entryButton.focus()`，不用改组件。
+- **保存中连按两次 Escape**：部分 Chromium 版本对 `cancel` 事件的 `preventDefault()` 有防滥用限制，在没有新的用户操作时，第二次 Escape 可能仍会关闭弹窗。需要实测；如果 dialog 在保存中被关闭，feature 也要能处理之后才返回的 Promise（不要对已经移除的 DOM 报错）。
+- **Toast 被遮挡**：如果在 dialog 还开着时调用 Toast，它会被模态层盖住，所以要先 close 再调用 Toast。
+- **Field 的 id 冲突**：如果关闭后没有 remove 旧 dialog，再次打开会出现重复的 `id="task-title"`，label 会关联到旧的输入框。
